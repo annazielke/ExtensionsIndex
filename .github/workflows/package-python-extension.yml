@@ -1,0 +1,137 @@
+name: Package Python Extension
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  find-extensions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      extensions: ${{ steps.get-extensions.outputs.extensions }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Get changed extension files
+        id: get-extensions
+        run: |
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          # Include renamed files (--name-only reports them under their new path)
+          git diff --name-only --diff-filter=AMR "origin/$BASE_REF"...HEAD \
+            | grep -E '\.json$' > /tmp/changed_files.txt || true
+          echo "Changed JSON files:"
+          cat /tmp/changed_files.txt || echo "(none)"
+
+          python3 << 'PYEOF'
+          import json, os
+
+          extensions = []
+          with open("/tmp/changed_files.txt") as fh:
+              changed_files = [line.strip() for line in fh if line.strip()]
+
+          for f in changed_files:
+              if not os.path.isfile(f):
+                  continue
+              with open(f) as fh:
+                  data = json.load(fh)
+              scm_url = data.get("scm_url", "")
+              if not scm_url:
+                  continue
+              scm_revision = data.get("scm_revision", "main")
+              name = os.path.splitext(os.path.basename(f))[0]
+              has_dependencies = bool(data.get("build_dependencies", []))
+              extensions.append({"name": name, "scm_url": scm_url, "revision": scm_revision, "has_dependencies": has_dependencies})
+
+          output = json.dumps(extensions)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"extensions={output}\n")
+          print(f"Found {len(extensions)} extension(s): {output}")
+          PYEOF
+
+  package:
+    needs: find-extensions
+    if: needs.find-extensions.outputs.extensions != '[]'
+    name: Package ${{ matrix.extension.name }} on ${{ matrix.os.name }}
+    runs-on: ${{ matrix.os.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        extension: ${{ fromJson(needs.find-extensions.outputs.extensions) }}
+        os:
+          - runner: windows-latest
+            name: Windows
+          - runner: ubuntu-latest
+            name: Linux
+          # Disable Intel macOS configuration, as runners are often not available for many hours.
+          # - runner: macos-13
+          #   name: macOS
+    steps:
+      - name: Checkout extension
+        shell: bash
+        run: |
+          git clone "${{ matrix.extension.scm_url }}" .
+          git checkout "${{ matrix.extension.revision }}"
+
+      - name: Check for C++ source files or build dependencies
+        id: check-cpp
+        shell: bash
+        run: |
+          if [ "${{ matrix.extension.has_dependencies }}" = "true" ]; then
+            echo "Extension has build dependencies - skipping packaging test"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          elif find . \( -name "*.cxx" -o -name "*.h" \) | grep -q .; then
+            echo "C++ source files found - skipping packaging test"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Python-only extension - proceeding with packaging test"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout Slicer source
+        if: steps.check-cpp.outputs.skip != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: lassoan/Slicer
+          ref: python-ext-build
+          path: _slicer_src
+
+      - name: Set up Python
+        if: steps.check-cpp.outputs.skip != 'true'
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.x"
+
+      - name: Set up CMake
+        if: steps.check-cpp.outputs.skip != 'true'
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: latest
+
+      - name: Package extension
+        if: steps.check-cpp.outputs.skip != 'true'
+        shell: bash
+        run: |
+          python "${{ github.workspace }}/_slicer_src/Utilities/Scripts/package_python_extension.py" \
+            --ext-src "${{ github.workspace }}" \
+            --slicer-src "${{ github.workspace }}/_slicer_src" \
+            --build-dir "${{ runner.temp }}/ext-build" \
+            --dummy-build "${{ runner.temp }}/SlicerDummyBuild" \
+            --output-dir "${{ github.workspace }}/packages" \
+            --slicer-revision "python-ext-build" \
+            --cmake-arg "-DBUILD_TESTING=OFF"
+
+      - name: Upload package artifact
+        if: steps.check-cpp.outputs.skip != 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package-${{ matrix.extension.name }}-${{ matrix.os.name }}
+          path: packages/
+          if-no-files-found: error

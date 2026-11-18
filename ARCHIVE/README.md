@@ -19,21 +19,29 @@ the archive are as follows
 
 | Date       | Extension Name                | Deprecation reason  |
 |------------|-------------------------------|---------------------|
+| 2026-10-09 | LayerDisplayableManager    | Moved to core application, see https://github.com/Slicer/Slicer/pull/9184 |
+| 2026-05-04 | DCMQI                      | Moved to core application, see https://github.com/Slicer/Slicer/pull/9114 |
+| 2026-05-04 | PETLiverUptakeMeasurement  | Original maintainers are no longer supporting this extension, while updates are needed to update dependency on the DCMQI, no longer available as an extension. May be added back in the future pending resources availability. |
+| 2025-04-02 | SlicerWMA                  | Extension prevented Slicer from starting https://discourse.slicer.org/t/slicer-doesnt-open-after-installing-slicerwma-extension/42356|
+| 2024-11-16 | SlicerOpenCV                  | Extension failing build and no longer needed https://discourse.slicer.org/t/opencv-extension-build-fails-since-june-itk-upgrade/38158/2 |
+| 2024-06-14 | iGyne                         | Unmaintained and incompatible with Slicer >- 5.2 due to its dependencies to the Annotations module. |
+| 2023-08-11 | mpReview                      | The extension is available again (it has been updated to use Segment Editor module instead of the removed Editor module). |
+| 2023-07-13 | SegmentGeometry               | Extension was [renamed to SlicerBiomech](https://github.com/Slicer/ExtensionsIndex/commit/b72fefc948e9710af3c631acd42360699211f8e4)]. |
 | 2022-03-29 | DeepInfer                     | Not updated for Python3. MONAILabel may be used instead. |
 | 2022-03-26 | WASP                          | Extension was [not compatible with Python3](https://github.com/Tomnl/Slicer-Wasp/issues/2) and ITK watershed segmentation is already available in SegmentEditorExtraEffects extension (with the limtiation that it does not precompute multiple levels). |
 | 2022-03-25 | LongitudinalPETCT             | Extension build was failing due to dependency on removed module (Annotations, Editor, Charts)(https://github.com/QIICR/LongitudinalPETCT/issues/17). |
-| 2022-03-25 | MFSDA                         | Extension build was failing and maintaners not responding](https://github.com/DCBIA-OrthoLab/MFSDA_Python/issues/26). |
-| 2022-03-25 | ResampleDTIlogEuclidean       | Extension build was failing and maintaners not merging the proposed fix](https://github.com/NIRALUser/ResampleDTIlogEuclidean/issues/4). |
+| 2022-03-25 | MFSDA                         | Extension build was failing and [maintaners not responding](https://github.com/DCBIA-OrthoLab/MFSDA_Python/issues/26). |
+| 2022-03-25 | ResampleDTIlogEuclidean       | Extension build was failing and [maintaners not merging the proposed fix](https://github.com/NIRALUser/ResampleDTIlogEuclidean/issues/4). |
 | 2022-03-25 | CBC_3D_I2MConversion          | Extension build was failing and not fixed for several years. |
 | 2022-03-25 | MABMIS                        | Extension build was failing and not fixed for several years. |
-| 2022-03-25 | exStone                       | Extension build was failing and maintaners not merging the proposed fix](https://github.com/qimo601/exStone/pull/2). |
+| 2022-03-25 | exStone                       | Extension build was failing and [maintaners not merging the proposed fix](https://github.com/qimo601/exStone/pull/2). |
 | 2022-03-25 | SlicerAstro                   | Extension build was failing and [not fixed for a long time](https://github.com/Punzo/SlicerAstro/issues/116). |
-| 2022-03-25 | GraphCutSegment               | Extension build was failing and maintaners not merging the proposed fix](https://github.com/Slicer/SlicerGraphCutSegment/pull/5). Probably "Grow from seeds" effect in Segment Editor produces better results. |
+| 2022-03-25 | GraphCutSegment               | Extension build was failing and [maintaners not merging the proposed fix](https://github.com/Slicer/SlicerGraphCutSegment/pull/5). Probably "Grow from seeds" effect in Segment Editor produces better results. |
 | 2022-03-25 | LAScarSegmenter               | Extension build was failing and [not fixed for a long time](https://github.com/ljzhu/LAScarSegmenter/issues/1). |
-| 2022-03-25 | LASegmenter                   | Extension build was failing and maintaners not merging the proposed fix](https://github.com/ljzhu/LASegmenter/pull/8). |
-| 2022-03-25 | ROBEXBrainExtraction          | Extension build was failing and maintaners not merging the proposed fix](https://github.com/CSIM-Toolkits/ROBEXBrainExtraction/pull/2). HDBrainExtraction or SwissSkullStripper extensions can be used instead. |
-| 2022-03-25 | LesionSimulator               | Extension build was failing and maintaners not merging the proposed fix](https://github.com/CSIM-Toolkits/Slicer-LesionSimulatorExtension/pull/14). |
-| 2022-03-25 | LesionSpotlight               | Extension build was failing and maintaners not merging the proposed fix](https://github.com/CSIM-Toolkits/LesionSpotlightExtension/pull/7). |
+| 2022-03-25 | LASegmenter                   | Extension build was failing and [maintaners not merging the proposed fix](https://github.com/ljzhu/LASegmenter/pull/8). |
+| 2022-03-25 | ROBEXBrainExtraction          | Extension build was failing and [maintaners not merging the proposed fix](https://github.com/CSIM-Toolkits/ROBEXBrainExtraction/pull/2). HDBrainExtraction or SwissSkullStripper extensions can be used instead. |
+| 2022-03-25 | LesionSimulator               | Extension build was failing and [maintaners not merging the proposed fix](https://github.com/CSIM-Toolkits/Slicer-LesionSimulatorExtension/pull/14). |
+| 2022-03-25 | LesionSpotlight               | Extension build was failing and [maintaners not merging the proposed fix](https://github.com/CSIM-Toolkits/LesionSpotlightExtension/pull/7). |
 | 2022-03-24 | SlicerOpenCV                  | Extension build was failing and [not fixed for a long time](https://github.com/Slicer/SlicerOpenCV/issues/74). OpenCV is now available using pip, so the extension may not be needed anymore. |
 | 2022-03-24 | SlicerPinholeCameras          | Extension build was failing and [not fixed for a long time](https://github.com/VASST/SlicerPinholeCameras/issues/6). Requires OpenCV. |
 | 2022-03-24 | OpenCVExample                 | Extension build was failing and not fixed for a long time. Requires OpenCV. |

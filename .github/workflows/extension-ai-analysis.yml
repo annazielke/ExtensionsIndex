@@ -1,0 +1,101 @@
+name: Extension AI Analysis
+
+# SECURITY: This workflow uses pull_request_target so it has access to secrets
+# and always executes scripts from the BASE repository, never from the contributor's fork.
+#
+# Code path with access to secrets:
+#   - scripts/extension_ai_analysis.py — checked out from the BASE repository only
+#     (the default actions/checkout with no repository/ref override).
+#
+# Data fetched from the fork (no code executed):
+#   - The changed *.json extension description files are fetched from the fork's
+#     commit via "git fetch + git checkout <files>" — they are read as data by the
+#     script, not executed.
+#
+# Do NOT change the checkout step to reference the fork's repository or ref,
+# as that would replace the trusted scripts with untrusted fork code.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ai-analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read # to list the files changed by the pull request
+    timeout-minutes: 60
+    steps:
+      - name: Checkout base repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        # No repository/ref override — checks out the BASE repo with trusted scripts.
+
+      - name: Setup Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          echo "Installing dependencies from requirements.txt:"
+          cat scripts/requirements.txt
+          pip install -r scripts/requirements.txt
+          echo "Verifying installed packages:"
+          pip list | grep -E "(jsonschema|requests)"
+
+      - name: Fetch changed JSON files from PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FORK_REPO="${{ github.event.pull_request.head.repo.full_name }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+
+          # Fetch only the fork's HEAD commit (not the full fork history)
+          git fetch "https://github.com/$FORK_REPO" "$HEAD_SHA" --depth=1
+
+          # List the root-level JSON files this pull request adds, modifies or renames,
+          # as GitHub reports them (renamed files appear under their new path).
+          # Diffing the base branch tip against the fork's commit instead would also
+          # pick up every file changed on the base branch since the fork branched off,
+          # so a stale branch would analyze unrelated (even archived) extensions.
+          gh api --paginate "repos/${{ github.repository }}/pulls/$PR_NUMBER/files" \
+            --jq '.[] | select(.status != "removed") | .filename' \
+            | grep -E '^[A-Za-z0-9._-]+\.json$' > /tmp/changed_files.txt || true
+
+          echo "Changed JSON files:"
+          cat /tmp/changed_files.txt || echo "(none)"
+
+          if [ ! -s /tmp/changed_files.txt ]; then
+            echo "::warning::No added, modified, or renamed extension description files found in this PR - AI analysis will be skipped."
+          fi
+
+          # Checkout only the JSON files from the fork's commit.
+          # These are extension description files treated as data, not executed code.
+          CHANGED_FILES=$(cat /tmp/changed_files.txt | tr '\n' ' ')
+          if [ -n "$CHANGED_FILES" ]; then
+            git checkout FETCH_HEAD -- $CHANGED_FILES
+          fi
+
+      - name: Run AI analysis
+        env:
+          INFERENCE_URL: ${{ vars.INFERENCE_URL }}
+          INFERENCE_MODEL: ${{ vars.INFERENCE_MODEL }}
+          INFERENCE_API_KEY: ${{ secrets.INFERENCE_API_KEY }}
+        run: |
+          # Stream the analysis to the log as it runs rather than capturing it in a
+          # variable: a job that is cancelled on timeout otherwise reports nothing.
+          # pipefail keeps the step failing when the script does, despite the pipe.
+          set -o pipefail
+          python scripts/extension_ai_analysis.py \
+            $(cat /tmp/changed_files.txt | tr '\n' ' ') | tee /tmp/ai_analysis_result.txt
+          echo "### AI Analysis Result" >> $GITHUB_STEP_SUMMARY
+          cat /tmp/ai_analysis_result.txt >> $GITHUB_STEP_SUMMARY
